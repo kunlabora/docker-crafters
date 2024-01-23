@@ -3,7 +3,9 @@ import express, { Request, Response } from 'express';
 const app = express();
 const port = 3000;
 
-app.get('/', (req: Request, res: Response) => {
+app.use(cors());
+
+app.get('/api/greet', (req: Request, res: Response) => {
   res.json({ message: 'Hello from Express!' });
 });
 

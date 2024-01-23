@@ -6,8 +6,10 @@
 module Main exposing(..)
 
 import Browser
-import Html exposing (Html, text, pre)
-import Http
+import Html exposing (Html, div, button, text, pre)
+import Html.Events exposing (onClick)
+import Http exposing (..)
+import Json.Decode exposing (Decoder, int, string, succeed, field, map)
 
 
 
@@ -30,38 +32,51 @@ main =
 type Model
   = Failure
   | Loading
-  | Success String
+  | Success WelcomeMessage
+
+type alias WelcomeMessage =
+  { message: String }
+
+emptyModel = Success <| WelcomeMessage "" 
 
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( Loading
-  , Http.get
-      { url = "https://elm-lang.org/assets/public-opinion.txt"
-      , expect = Http.expectString GotText
-      }
+  ( emptyModel,
+    Cmd.none
   )
-
 
 
 -- UPDATE
 
 
 type Msg
-  = GotText (Result Http.Error String)
+  = ButtonClicked
+  | GotMessage (Result Http.Error WelcomeMessage)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    GotText result ->
+    ButtonClicked -> (Loading, fetchMessageCmd)
+    GotMessage result ->
       case result of
-        Ok fullText ->
-          (Success fullText, Cmd.none)
+        Ok message -> (Success message, Cmd.none)
+        Err _ -> (Failure, Cmd.none)
 
-        Err _ ->
-          (Failure, Cmd.none)
 
+-- HTTP
+
+fetchMessageCmd : Cmd Msg
+fetchMessageCmd = 
+    Http.get
+        { url = "/api/greet" -- Replace with your API endpoint
+        , expect = Http.expectJson GotMessage fetchDataResponse
+        }
+
+fetchDataResponse : Decoder WelcomeMessage
+fetchDataResponse =
+    map WelcomeMessage (field "message" string)
 
 
 -- SUBSCRIPTIONS
@@ -78,12 +93,18 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
+  div []
+    [ div [] [ button [ onClick ButtonClicked ] [ text "Click to fetch message." ] ]
+    , div [] [ viewMessage model ]
+    ]
+
+viewMessage model =
   case model of
     Failure ->
-      text "I was unable to load your book."
+      text "Something went wrong trying to fetch the welcome message"
 
     Loading ->
       text "Loading..."
 
-    Success fullText ->
-      pre [] [ text fullText ]
+    Success welcomeMsg ->
+      pre [] [ text welcomeMsg.message ]
